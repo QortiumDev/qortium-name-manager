@@ -11,8 +11,8 @@ import { themeAtom } from '../../state/atoms';
 import { EnumTheme } from '../../types';
 
 const NAV = [
-  { path: '/',         icon: <StorefrontIcon fontSize="small" />, label: 'Marketplace' },
-  { path: '/my-names', icon: <BadgeIcon fontSize="small" />,      label: 'My Names' },
+  { path: '/',             icon: <BadgeIcon fontSize="small" />,      label: 'My Names' },
+  { path: '/marketplace',  icon: <StorefrontIcon fontSize="small" />, label: 'Marketplace' },
 ];
 
 export function TopBar() {
@@ -34,7 +34,7 @@ export function TopBar() {
       }}
     >
       <Box sx={{ fontWeight: tokens.typography.weightBlack, fontSize: '1rem', color: c.textPrimary, letterSpacing: '-0.01em', mr: 'auto' }}>
-        Namium
+        Names
       </Box>
 
       {NAV.map(({ path, icon, label }) => {

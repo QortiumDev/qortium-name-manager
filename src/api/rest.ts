@@ -41,6 +41,14 @@ export async function searchNamesForSale(query: string, limit = 50): Promise<Arr
   } catch { return []; }
 }
 
+export async function fetchNamesByAddress(address: string): Promise<Array<{ name: string; owner: string; isForSale?: boolean; salePrice?: number | null }>> {
+  try {
+    return await get<Array<{ name: string; owner: string; isForSale?: boolean; salePrice?: number | null }>>(
+      `/names/address/${encodeURIComponent(address)}?limit=50`
+    );
+  } catch { return []; }
+}
+
 export async function fetchPrimaryNames(addresses: string[]): Promise<Map<string, string | null>> {
   if (addresses.length === 0) return new Map();
   try {

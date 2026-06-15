@@ -7,28 +7,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      if (typeof qortalRequest === 'undefined') {
-        const delay = ms => new Promise(r => setTimeout(r, ms));
-        window.qortalRequest = function(opts) {
-          const action = opts.action;
-          if (action === 'GET_USER_ACCOUNT') return Promise.resolve({ address: 'QabcDEF1234567890abcDEF1234567890abcDEF12', name: 'devuser', publicKey: 'devpubkey' });
-          if (action === 'GET_ACCOUNT_NAMES') return delay(400).then(() => [
-            { name: 'devuser', owner: opts.address, registrationTimestamp: Date.now() - 86400000 * 200, description: 'My main name', isForSale: false },
-            { name: 'cool-name', owner: opts.address, registrationTimestamp: Date.now() - 86400000 * 50, description: '', isForSale: true, salePrice: 500 },
-          ]);
-          if (action === 'GET_BALANCE') return Promise.resolve(420.5);
-          if (action === 'SELL_NAME') return delay(600).then(() => ({ signature: 'fakesig' }));
-          if (action === 'CANCEL_SELL_NAME') return delay(600).then(() => ({ signature: 'fakesig' }));
-          if (action === 'BUY_NAME') return delay(600).then(() => ({ signature: 'fakesig' }));
-          if (action === 'REGISTER_NAME') return delay(800).then(() => ({ signature: 'fakesig' }));
-          if (action === 'UPDATE_NAME') return delay(600).then(() => ({ signature: 'fakesig' }));
-          if (action === 'OPEN_NEW_TAB') { console.log('[mock] OPEN_NEW_TAB', opts.qortalLink); return Promise.resolve(); }
-          console.warn('[mock qortalRequest] unhandled action:', action, opts);
-          return Promise.resolve(null);
-        };
-      }
-    </script>
-    <script type="module" src="/src/main.tsx"></script>
+<script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

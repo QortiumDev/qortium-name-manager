@@ -196,7 +196,7 @@ export function MyNamesPage() {
   const c = useColors();
   const account = useAtomValue(accountAtom);
   const [names, setNames] = useState<NameEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [registerInput, setRegisterInput] = useState('');
   const [busyRegister, setBusyRegister] = useState(false);
   const [registerStatus, setRegisterStatus] = useState<Status>(null);
@@ -223,8 +223,6 @@ export function MyNamesPage() {
       setRegisterStatus({ type: 'error', msg: e instanceof Error ? e.message : String(e) });
     } finally { setBusyRegister(false); }
   }
-
-  if (!account) return null;
 
   return (
     <Box sx={{ pt: `${tokens.spacing.topBarHeight + 24}px`, pb: 4, px: { xs: 2, md: 4 }, maxWidth: 720, mx: 'auto' }}>
