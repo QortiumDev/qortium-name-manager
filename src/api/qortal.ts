@@ -14,18 +14,23 @@ export async function registerName(name: string): Promise<void> {
   await qdnRequest({ action: 'REGISTER_NAME', name });
 }
 
-export async function updateName(oldName: string, newName: string): Promise<void> {
-  await qdnRequest({ action: 'UPDATE_NAME', oldName, newName });
+export async function updateName(name: string, newName: string): Promise<void> {
+  await qdnRequest({ action: 'UPDATE_NAME', name, newName });
 }
 
-export async function sellName(nameForSale: string, salePrice: number): Promise<void> {
-  await qdnRequest({ action: 'SELL_NAME', nameForSale, salePrice });
+export async function sellName(name: string, amount: number): Promise<void> {
+  await qdnRequest({ action: 'SELL_NAME', name, amount });
 }
 
-export async function cancelSellName(nameForSale: string): Promise<void> {
-  await qdnRequest({ action: 'CANCEL_SELL_NAME', nameForSale });
+export async function cancelSellName(name: string): Promise<void> {
+  await qdnRequest({ action: 'CANCEL_SELL_NAME', name });
 }
 
-export async function buyName(nameForSale: string): Promise<void> {
-  await qdnRequest({ action: 'BUY_NAME', nameForSale });
+export async function buyName(name: string): Promise<void> {
+  await qdnRequest({ action: 'BUY_NAME', name });
+}
+
+export async function ensureAccountUnlocked(): Promise<boolean> {
+  const result = await qdnRequest({ action: 'UNLOCK_SELECTED_ACCOUNT' }) as { isUnlocked?: boolean } | null;
+  return result?.isUnlocked === true;
 }

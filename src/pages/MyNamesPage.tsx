@@ -11,7 +11,7 @@ import { useAtomValue } from 'jotai';
 import { useColors } from '../theme/ColorTokensContext';
 import { tokens } from '../theme/tokens';
 import { accountAtom } from '../state/atoms';
-import { getAccountNames, registerName, updateName, sellName, cancelSellName } from '../api/qortal';
+import { getAccountNames, registerName, updateName, sellName, cancelSellName, ensureAccountUnlocked } from '../api/qortal';
 
 type NameEntry = { name: string; owner: string; description?: string; registrationTimestamp: number; isForSale?: boolean; salePrice?: number };
 type Status = { type: 'success' | 'error'; msg: string } | null;
@@ -28,7 +28,10 @@ function SellDialog({ name, onClose, onSuccess }: { name: string; onClose: () =>
   async function confirm() {
     if (!valid) return;
     setBusy(true); setErr(null);
-    try { await sellName(name, parsed); onSuccess(); onClose(); }
+    try {
+      if (!await ensureAccountUnlocked()) return;
+      await sellName(name, parsed); onSuccess(); onClose();
+    }
     catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -71,7 +74,10 @@ function RenameDialog({ name, onClose, onSuccess }: { name: string; onClose: () 
   async function confirm() {
     if (!newName.trim()) return;
     setBusy(true); setErr(null);
-    try { await updateName(name, newName.trim()); onSuccess(); onClose(); }
+    try {
+      if (!await ensureAccountUnlocked()) return;
+      await updateName(name, newName.trim()); onSuccess(); onClose();
+    }
     catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -139,6 +145,7 @@ function MyNameCard({ entry, isPrimary, onRefresh }: { entry: NameEntry; isPrima
   async function handleCancel() {
     setCancelBusy(true); setStatus(null);
     try {
+      if (!await ensureAccountUnlocked()) return;
       await cancelSellName(entry.name);
       setStatus({ type: 'success', msg: 'Listing cancelled.' });
       onRefresh();
@@ -157,13 +164,11 @@ function MyNameCard({ entry, isPrimary, onRefresh }: { entry: NameEntry; isPrima
       p: 2.5,
       transition: '0.15s ease',
     }}>
-      {/* Name + badges row */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: listed ? 1 : 1.5, flexWrap: 'wrap' }}>
         <Typography sx={{ fontSize: '1rem', fontWeight: tokens.typography.weightBold, color: c.textPrimary }}>{entry.name}</Typography>
         {isPrimary && <Chip label="Primary" size="small" sx={{ fontSize: '0.62rem', height: 18, bgcolor: `${c.accent}22`, color: c.accent, border: `1px solid ${c.accent}44` }} />}
       </Box>
 
-      {/* Listed-for-sale price banner */}
       {listed && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, p: 1, bgcolor: `${c.success}14`, border: `1px solid ${c.success}33`, borderRadius: `${tokens.shape.radius / 2}px` }}>
           <Typography sx={{ fontSize: '0.65rem', fontWeight: tokens.typography.weightBold, letterSpacing: '0.1em', textTransform: 'uppercase', color: c.success }}>
@@ -215,6 +220,7 @@ export function MyNamesPage() {
     if (!name) return;
     setBusyRegister(true); setRegisterStatus(null);
     try {
+      if (!await ensureAccountUnlocked()) return;
       await registerName(name);
       setRegisterStatus({ type: 'success', msg: `"${name}" registered.` });
       setRegisterInput('');
@@ -240,20 +246,17 @@ export function MyNamesPage() {
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={24} sx={{ color: c.accent }} /></Box>
       ) : (
         <>
-          {/* Primary name */}
           {names.length > 0 && (
             <Box sx={{ mb: 1.5 }}>
               <MyNameCard entry={names[0]} isPrimary onRefresh={load} />
             </Box>
           )}
-
           {names.length === 0 && (
             <Typography sx={{ fontSize: '0.85rem', color: c.textSecondary, mb: 1.5 }}>You have no registered names yet.</Typography>
           )}
         </>
       )}
 
-      {/* Register — sits between primary name and the rest */}
       <Box sx={{ border: `${tokens.shape.borderWidth} solid ${c.borderLight}`, borderRadius: `${tokens.shape.radius}px`, bgcolor: c.surface, p: 3, mb: names.length > 1 ? 1.5 : 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
           <AddIcon sx={{ fontSize: '1rem', color: c.textSecondary }} />
@@ -279,7 +282,6 @@ export function MyNamesPage() {
         </Box>
       </Box>
 
-      {/* Remaining names */}
       {!loading && names.length > 1 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {names.slice(1).map(n => (

@@ -10,7 +10,7 @@ import { useAtomValue } from 'jotai';
 import { useColors } from '../theme/ColorTokensContext';
 import { tokens } from '../theme/tokens';
 import { accountAtom } from '../state/atoms';
-import { buyName, registerName } from '../api/qortal';
+import { buyName, registerName, ensureAccountUnlocked } from '../api/qortal';
 import { fetchNamesForSale, searchNamesForSale, fetchPrimaryNames, fetchNameData } from '../api/rest';
 
 const LIMIT = 20;
@@ -39,7 +39,10 @@ function BuyDialog({ entry, onClose, onSuccess }: { entry: NameForSale; onClose:
 
   async function confirm() {
     setBusy(true); setErr(null);
-    try { await buyName(entry.name); onSuccess(); onClose(); }
+    try {
+      if (!await ensureAccountUnlocked()) return;
+      await buyName(entry.name); onSuccess(); onClose();
+    }
     catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -223,6 +226,7 @@ export function MarketplacePage({ initialQuery, exact }: Props) {
     setRegistering(true);
     setRegisterError(null);
     try {
+      if (!await ensureAccountUnlocked()) return;
       await registerName(initialQuery);
       setRegisterDone(true);
       const record = await fetchNameData(initialQuery);
