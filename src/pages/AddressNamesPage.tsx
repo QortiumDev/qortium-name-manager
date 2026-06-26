@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Button, CircularProgress, Typography, Chip } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BadgeIcon from '@mui/icons-material/Badge';
+import { useAtomValue } from 'jotai';
 import { useColors } from '../theme/ColorTokensContext';
 import { tokens } from '../theme/tokens';
+import { uiStyleAtom } from '../state/atoms';
 import { fetchNamesByAddress, fetchPrimaryNames } from '../api/rest';
 
 type NameEntry = { name: string; owner: string; isForSale?: boolean; salePrice?: number | null };
@@ -13,6 +15,8 @@ export function AddressNamesPage() {
   const { address } = useParams<{ address: string }>();
   const navigate = useNavigate();
   const c = useColors();
+  const uiStyle = useAtomValue(uiStyleAtom);
+  const isClassic = uiStyle === 'classic';
 
   const [names, setNames]             = useState<NameEntry[]>([]);
   const [primaryName, setPrimaryName] = useState<string | null>(null);
@@ -34,7 +38,17 @@ export function AddressNamesPage() {
   const displayId = primaryName ?? truncAddr;
 
   return (
-    <Box sx={{ pt: `${tokens.spacing.topBarHeight + 24}px`, pb: 4, px: { xs: 2, md: 4 }, maxWidth: 720, mx: 'auto' }}>
+    <Box
+      sx={{
+        pt: isClassic
+          ? `calc(var(--names-top-bar-height, ${tokens.spacing.classicTopBarOffset}px) + 24px)`
+          : `${tokens.spacing.topBarHeight + 24}px`,
+        pb: 4,
+        px: { xs: isClassic ? 1.5 : 2, md: isClassic ? 3 : 4 },
+        maxWidth: isClassic ? c.layoutMaxWidth : 720,
+        mx: 'auto',
+      }}
+    >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
         <Button onClick={() => navigate(-1)} size="small" startIcon={<ArrowBackIcon />}
           sx={{ color: c.textSecondary, fontWeight: tokens.typography.weightBold, fontSize: '0.72rem', minWidth: 0, p: 0, '&:hover': { color: c.accent, bgcolor: 'transparent' } }}>
