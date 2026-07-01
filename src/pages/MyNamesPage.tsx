@@ -10,7 +10,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useAtomValue } from 'jotai';
 import { useColors } from '../theme/ColorTokensContext';
 import { tokens } from '../theme/tokens';
-import { accountAtom } from '../state/atoms';
+import { accountAtom, uiStyleAtom } from '../state/atoms';
 import { getAccountNames, registerName, updateName, sellName, cancelSellName, ensureAccountUnlocked } from '../api/qortal';
 
 type NameEntry = { name: string; owner: string; description?: string; registrationTimestamp: number; isForSale?: boolean; salePrice?: number };
@@ -104,9 +104,9 @@ function RenameDialog({ name, onClose, onSuccess }: { name: string; onClose: () 
         />
         <Button
           variant="contained" disableElevation onClick={() => { void confirm(); }} disabled={busy || !newName.trim()}
-          sx={{ bgcolor: c.error, color: '#fff', borderRadius: 0, '&:hover': { bgcolor: '#c0392b' }, '&.Mui-disabled': { opacity: 0.35, bgcolor: c.error, color: '#fff' } }}
+          sx={{ bgcolor: c.error, color: c.surface, borderRadius: 0, '&:hover': { bgcolor: c.dangerSoft }, '&.Mui-disabled': { opacity: 0.35, bgcolor: c.error, color: c.surface } }}
         >
-          {busy ? <CircularProgress size={14} sx={{ color: '#fff' }} /> : 'Rename permanently'}
+          {busy ? <CircularProgress size={14} sx={{ color: c.surface }} /> : 'Rename permanently'}
         </Button>
       </DialogContent>
     </Dialog>
@@ -116,11 +116,12 @@ function RenameDialog({ name, onClose, onSuccess }: { name: string; onClose: () 
 function ActionBtn({ children, onClick, disabled, color = 'accent', loading = false }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; color?: 'accent' | 'error'; loading?: boolean }) {
   const c = useColors();
   const bg = color === 'error' ? c.error : c.accent;
-  const bgHover = color === 'error' ? '#c0392b' : c.accentHover;
+  const bgHover = color === 'error' ? c.dangerSoft : c.accentHover;
+  const fg = color === 'error' ? c.surface : c.accentText;
   return (
     <Button variant="contained" disableElevation size="small" disabled={disabled || loading} onClick={onClick}
-      sx={{ bgcolor: bg, color: '#fff', borderRadius: '50px', fontSize: '0.72rem', px: 1.75, whiteSpace: 'nowrap', '&:hover': { bgcolor: bgHover }, '&.Mui-disabled': { opacity: 0.35, bgcolor: bg, color: '#fff' } }}>
-      {loading ? <CircularProgress size={11} sx={{ color: '#fff' }} /> : children}
+      sx={{ bgcolor: bg, color: fg, borderRadius: '50px', fontSize: '0.72rem', px: 1.75, whiteSpace: 'nowrap', '&:hover': { bgcolor: bgHover }, '&.Mui-disabled': { opacity: 0.35, bgcolor: bg, color: fg } }}>
+      {loading ? <CircularProgress size={11} sx={{ color: fg }} /> : children}
     </Button>
   );
 }
@@ -200,6 +201,8 @@ function MyNameCard({ entry, isPrimary, onRefresh }: { entry: NameEntry; isPrima
 export function MyNamesPage() {
   const c = useColors();
   const account = useAtomValue(accountAtom);
+  const uiStyle = useAtomValue(uiStyleAtom);
+  const isClassic = uiStyle === 'classic';
   const [names, setNames] = useState<NameEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [registerInput, setRegisterInput] = useState('');
@@ -231,7 +234,17 @@ export function MyNamesPage() {
   }
 
   return (
-    <Box sx={{ pt: `${tokens.spacing.topBarHeight + 24}px`, pb: 4, px: { xs: 2, md: 4 }, maxWidth: 720, mx: 'auto' }}>
+    <Box
+      sx={{
+        pt: isClassic
+          ? `calc(var(--names-top-bar-height, ${tokens.spacing.classicTopBarOffset}px) + 24px)`
+          : `${tokens.spacing.topBarHeight + 24}px`,
+        pb: 4,
+        px: { xs: isClassic ? 1.5 : 2, md: isClassic ? 3 : 4 },
+        maxWidth: isClassic ? c.layoutMaxWidth : 720,
+        mx: 'auto',
+      }}
+    >
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
           <BadgeIcon sx={{ fontSize: '1rem', color: c.textSecondary }} />

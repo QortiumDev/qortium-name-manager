@@ -9,7 +9,7 @@ import StorefrontIcon from '@mui/icons-material/Storefront';
 import { useAtomValue } from 'jotai';
 import { useColors } from '../theme/ColorTokensContext';
 import { tokens } from '../theme/tokens';
-import { accountAtom } from '../state/atoms';
+import { accountAtom, uiStyleAtom } from '../state/atoms';
 import { buyName, registerName, ensureAccountUnlocked } from '../api/qortal';
 import { fetchNamesForSale, searchNamesForSale, fetchPrimaryNames, fetchNameData } from '../api/rest';
 
@@ -122,6 +122,8 @@ interface Props {
 export function MarketplacePage({ initialQuery, exact }: Props) {
   const c = useColors();
   const account = useAtomValue(accountAtom);
+  const uiStyle = useAtomValue(uiStyleAtom);
+  const isClassic = uiStyle === 'classic';
 
   const [inputValue, setInputValue] = useState(initialQuery ?? '');
   const [query, setQuery]           = useState(initialQuery ?? '');
@@ -263,7 +265,17 @@ export function MarketplacePage({ initialQuery, exact }: Props) {
   const fieldSx = { '& .MuiOutlinedInput-root': { fontSize: '0.82rem', '& fieldset': { borderColor: c.borderLight }, '&:hover fieldset': { borderColor: c.accent }, '&.Mui-focused fieldset': { borderColor: c.accent } } };
 
   return (
-    <Box sx={{ pt: `${tokens.spacing.topBarHeight + 24}px`, pb: 4, px: { xs: 2, md: 4 }, maxWidth: 720, mx: 'auto' }}>
+    <Box
+      sx={{
+        pt: isClassic
+          ? `calc(var(--names-top-bar-height, ${tokens.spacing.classicTopBarOffset}px) + 24px)`
+          : `${tokens.spacing.topBarHeight + 24}px`,
+        pb: 4,
+        px: { xs: isClassic ? 1.5 : 2, md: isClassic ? 3 : 4 },
+        maxWidth: isClassic ? c.layoutWideMaxWidth : 720,
+        mx: 'auto',
+      }}
+    >
 
       {/* Header with bg-loading indicator */}
       <Box sx={{ mb: 3 }}>
