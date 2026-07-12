@@ -93,6 +93,9 @@ export function TopBar() {
     borderRadius: `${isClassic ? tokens.shape.radiusMd : tokens.shape.radius}px`,
     minWidth: 44,
     minHeight: 44,
+    width: 44,
+    height: 44,
+    p: 0,
     color: c.textSecondary,
     '&:hover': { color: c.accent, bgcolor: isClassic ? c.controlHover : c.borderLight },
     transition: c.transitionControl,
@@ -110,7 +113,9 @@ export function TopBar() {
         borderBottom: `${isClassic ? tokens.shape.classicBorderWidth : tokens.shape.borderWidth} solid ${isClassic ? c.border : c.borderLight}`,
         boxShadow: isClassic ? c.topBarShadow : 'none',
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) auto auto',
+        gridTemplateColumns: isClassic
+          ? { xs: 'minmax(0, 1fr) auto', sm: 'minmax(0, 1fr) auto auto' }
+          : 'minmax(0, 1fr) auto auto',
         alignItems: 'center',
         px: isClassic ? { xs: 1.25, sm: 1.75 } : 2,
         py: isClassic ? 1 : 0,
@@ -122,7 +127,15 @@ export function TopBar() {
         Names
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: isClassic ? 0.5 : 0.25 }}>
+      <Box sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: isClassic ? { xs: 'center', sm: 'flex-start' } : 'flex-start',
+        gap: isClassic ? 0.5 : 0.25,
+        gridColumn: isClassic ? { xs: '1 / -1', sm: 'auto' } : 'auto',
+        gridRow: isClassic ? { xs: 2, sm: 'auto' } : 'auto',
+        minWidth: 0,
+      }}>
         {NAV.map(({ path, icon, label }) => {
           const active = location.pathname === path;
           return (
@@ -142,7 +155,14 @@ export function TopBar() {
         })}
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: isClassic ? 0.5 : 0.25 }}>
+      <Box sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: isClassic ? 0.5 : 0.25,
+        gridColumn: isClassic ? { xs: 2, sm: 'auto' } : 'auto',
+        gridRow: isClassic ? { xs: 1, sm: 'auto' } : 'auto',
+      }}>
         <RatingControl qdnName={APP_QDN_NAME} />
 
         <Tooltip title={isFollowed ? 'Stop following this app' : 'Follow this app'} placement="bottom">
