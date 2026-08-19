@@ -2,22 +2,26 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   Box, Button, CircularProgress, Dialog, DialogContent, DialogTitle,
   IconButton, InputAdornment, TextField, Tooltip, Typography, Alert, Select, MenuItem,
+  ToggleButton, ToggleButtonGroup, Chip, Badge,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import StorefrontIcon from '@mui/icons-material/Storefront';
-import { useAtomValue } from 'jotai';
+import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
+import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { useColors } from '../theme/ColorTokensContext';
 import { tokens } from '../theme/tokens';
-import { accountAtom, uiStyleAtom } from '../state/atoms';
+import { accountAtom, uiStyleAtom, incomingTransferCountAtom } from '../state/atoms';
 import { buyName, registerName, ensureAccountUnlocked } from '../api/qortal';
-import { fetchNamesForSale, searchNamesForSale, fetchPrimaryNames, fetchNameData } from '../api/rest';
+import { fetchNamesForSale, searchNamesForSale, fetchPrimaryNames, fetchNameData, fetchIncomingTransfers } from '../api/rest';
 
 const LIMIT = 20;
 
 type NameForSale = { name: string; owner: string; salePrice: number };
-type NameRecord   = { name: string; owner: string; isForSale: boolean; salePrice: number | null };
+type NameRecord   = { name: string; owner: string; isForSale: boolean; salePrice: number | null; saleRecipient?: string | null };
 type SortMode = 'default' | 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc';
+type BrowseTab = 'browse' | 'incoming';
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: 'default',    label: 'Default'  },
@@ -36,6 +40,7 @@ function BuyDialog({ entry, onClose, onSuccess }: { entry: NameForSale; onClose:
   const c = useColors();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const isGift = entry.salePrice === 0;
 
   async function confirm() {
     setBusy(true); setErr(null);
@@ -50,24 +55,33 @@ function BuyDialog({ entry, onClose, onSuccess }: { entry: NameForSale; onClose:
   return (
     <Dialog open onClose={onClose} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: c.surface, border: `${tokens.shape.borderWidth} solid ${c.borderLight}`, borderRadius: 0 } }}>
       <DialogTitle sx={{ px: 3, py: 2, borderBottom: `${tokens.shape.borderWidth} solid ${c.borderLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem', fontWeight: tokens.typography.weightBold, color: c.textPrimary }}>
-        Buy "{entry.name}"
+        {isGift ? 'Claim' : 'Buy'} "{entry.name}"
         <IconButton size="small" onClick={onClose} sx={{ color: c.textSecondary }}><CloseIcon fontSize="small" /></IconButton>
       </DialogTitle>
       <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Typography sx={{ fontSize: '0.85rem', color: c.textPrimary }}>
-          Purchase <strong>{entry.name}</strong> from{' '}
-          <Box component="span" sx={{ color: c.textSecondary }}>{truncateAddress(entry.owner)}</Box>{' '}
-          for{' '}
-          <Box component="span" sx={{ color: c.success, fontWeight: tokens.typography.weightBold }}>
-            {entry.salePrice.toLocaleString()} QORT
-          </Box>?
+          {isGift ? (
+            <>
+              Claim <strong>{entry.name}</strong>, gifted to you by{' '}
+              <Box component="span" sx={{ color: c.textSecondary }}>{truncateAddress(entry.owner)}</Box>. This is free — you'll only pay the network fee.
+            </>
+          ) : (
+            <>
+              Purchase <strong>{entry.name}</strong> from{' '}
+              <Box component="span" sx={{ color: c.textSecondary }}>{truncateAddress(entry.owner)}</Box>{' '}
+              for{' '}
+              <Box component="span" sx={{ color: c.success, fontWeight: tokens.typography.weightBold }}>
+                {entry.salePrice.toLocaleString()} QORT
+              </Box>?
+            </>
+          )}
         </Typography>
         {err && <Alert severity="error" sx={{ fontSize: '0.78rem', py: 0 }}>{err}</Alert>}
         <Button
           variant="contained" disableElevation onClick={() => { void confirm(); }} disabled={busy}
           sx={{ bgcolor: c.accent, color: c.accentText, borderRadius: 0, '&:hover': { bgcolor: c.accentHover }, '&.Mui-disabled': { opacity: 0.35, bgcolor: c.accent, color: c.accentText } }}
         >
-          {busy ? <CircularProgress size={14} sx={{ color: c.accentText }} /> : `Buy for ${entry.salePrice.toLocaleString()} QORT`}
+          {busy ? <CircularProgress size={14} sx={{ color: c.accentText }} /> : isGift ? 'Claim gift' : `Buy for ${entry.salePrice.toLocaleString()} QORT`}
         </Button>
       </DialogContent>
     </Dialog>
@@ -76,6 +90,7 @@ function BuyDialog({ entry, onClose, onSuccess }: { entry: NameForSale; onClose:
 
 function NameRow({ entry, isOwn, sellerName, onBuy }: { entry: NameForSale; isOwn: boolean; sellerName: string | null; onBuy: () => void }) {
   const c = useColors();
+  const isGift = entry.salePrice === 0;
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', gap: 2,
@@ -93,9 +108,17 @@ function NameRow({ entry, isOwn, sellerName, onBuy }: { entry: NameForSale; isOw
           {sellerName ?? truncateAddress(entry.owner)}
         </Typography>
       </Box>
-      <Typography sx={{ fontSize: '0.85rem', fontWeight: tokens.typography.weightBold, color: c.success, whiteSpace: 'nowrap' }}>
-        {entry.salePrice.toLocaleString()} QORT
-      </Typography>
+      {isGift ? (
+        <Chip
+          icon={<CardGiftcardIcon sx={{ fontSize: '0.85rem !important', color: `${c.accent} !important` }} />}
+          label="Gift" size="small"
+          sx={{ fontSize: '0.68rem', height: 22, bgcolor: `${c.accent}18`, color: c.accent, border: `1px solid ${c.accent}44` }}
+        />
+      ) : (
+        <Typography sx={{ fontSize: '0.85rem', fontWeight: tokens.typography.weightBold, color: c.success, whiteSpace: 'nowrap' }}>
+          {entry.salePrice.toLocaleString()} QORT
+        </Typography>
+      )}
       {isOwn ? (
         <Tooltip title="This is your listing" placement="left">
           <Typography sx={{ fontSize: '0.65rem', fontWeight: tokens.typography.weightBold, letterSpacing: '0.08em', textTransform: 'uppercase', color: c.textSecondary, whiteSpace: 'nowrap' }}>
@@ -107,7 +130,7 @@ function NameRow({ entry, isOwn, sellerName, onBuy }: { entry: NameForSale; isOw
           variant="contained" disableElevation size="small" onClick={onBuy}
           sx={{ bgcolor: c.accent, color: c.accentText, borderRadius: '50px', fontSize: '0.72rem', px: 1.75, whiteSpace: 'nowrap', '&:hover': { bgcolor: c.accentHover } }}
         >
-          Buy
+          {isGift ? 'Claim' : 'Buy'}
         </Button>
       )}
     </Box>
@@ -124,6 +147,9 @@ export function MarketplacePage({ initialQuery, exact }: Props) {
   const account = useAtomValue(accountAtom);
   const uiStyle = useAtomValue(uiStyleAtom);
   const isClassic = uiStyle === 'classic';
+  const setIncomingTransferCount = useSetAtom(incomingTransferCountAtom);
+
+  const [tab, setTab] = useState<BrowseTab>('browse');
 
   const [inputValue, setInputValue] = useState(initialQuery ?? '');
   const [query, setQuery]           = useState(initialQuery ?? '');
@@ -132,6 +158,10 @@ export function MarketplacePage({ initialQuery, exact }: Props) {
   const [loading, setLoading]       = useState(true);
   const [bgLoading, setBgLoading]   = useState(false);
   const [buyTarget, setBuyTarget]   = useState<NameForSale | null>(null);
+
+  const [incoming, setIncoming]               = useState<NameForSale[]>([]);
+  const [incomingOwnerNames, setIncomingOwnerNames] = useState<Map<string, string | null>>(new Map());
+  const [incomingLoading, setIncomingLoading]  = useState(false);
 
   const [sortMode, setSortMode] = useState<SortMode>('default');
   const [minPrice, setMinPrice] = useState('');
@@ -175,38 +205,56 @@ export function MarketplacePage({ initialQuery, exact }: Props) {
     let first  = true;
 
     while (true) {
-      const page = await fetchNamesForSale(LIMIT, offset);
+      const { items, rawCount } = await fetchNamesForSale(LIMIT, offset);
       if (gen !== genRef.current) return;
 
       if (first) {
-        setNames(page);
+        setNames(items);
         setLoading(false);
         first = false;
       } else {
-        setNames(prev => [...prev, ...page]);
+        setNames(prev => [...prev, ...items]);
       }
 
       // Resolve owner names for this page incrementally
-      if (page.length > 0) {
-        const addrs = [...new Set(page.map(n => n.owner))];
+      if (items.length > 0) {
+        const addrs = [...new Set(items.map(n => n.owner))];
         void fetchPrimaryNames(addrs).then(m => {
           if (gen === genRef.current) setOwnerNames(prev => new Map([...prev, ...m]));
         });
       }
 
-      if (page.length < LIMIT) {
+      // rawCount (not the filtered item count) tells us whether the node has more pages
+      if (rawCount < LIMIT) {
         setBgLoading(false);
         return;
       }
 
-      offset += page.length;
+      offset += rawCount;
       setBgLoading(true);
     }
   }, []);
 
   useEffect(() => {
-    void loadAll(query);
-  }, [query, loadAll]);
+    if (tab === 'browse') void loadAll(query);
+  }, [query, tab, loadAll]);
+
+  const loadIncoming = useCallback(async () => {
+    if (!account) return;
+    setIncomingLoading(true);
+    const list = await fetchIncomingTransfers(account.address);
+    setIncoming(list);
+    setIncomingTransferCount(list.length);
+    setIncomingLoading(false);
+    if (list.length > 0) {
+      const addrs = [...new Set(list.map(n => n.owner))];
+      void fetchPrimaryNames(addrs).then(setIncomingOwnerNames);
+    }
+  }, [account, setIncomingTransferCount]);
+
+  useEffect(() => {
+    if (tab === 'incoming') void loadIncoming();
+  }, [tab, loadIncoming]);
 
   useEffect(() => {
     if (!exact || !initialQuery) return;
@@ -300,6 +348,60 @@ export function MarketplacePage({ initialQuery, exact }: Props) {
         </Box>
       </Box>
 
+      {!exact && (
+        <ToggleButtonGroup
+          exclusive fullWidth value={tab}
+          onChange={(_, v) => { if (v) setTab(v as BrowseTab); }}
+          sx={{ mb: 2, '& .MuiToggleButtonGroup-grouped': { borderRadius: `${tokens.shape.radius}px !important`, border: `${tokens.shape.borderWidth} solid ${c.borderLight} !important` } }}
+        >
+          <ToggleButton
+            value="browse"
+            sx={{ flex: 1, textTransform: 'none', fontSize: '0.78rem', gap: 0.75, py: 0.75, color: c.textSecondary, borderColor: c.borderLight, '&.Mui-selected': { bgcolor: `${c.accent}18`, color: c.accent, borderColor: c.accent, '&:hover': { bgcolor: `${c.accent}26` } } }}
+          >
+            <StorefrontIcon sx={{ fontSize: '1rem' }} />Browse
+          </ToggleButton>
+          <ToggleButton
+            value="incoming" disabled={!account}
+            sx={{ flex: 1, textTransform: 'none', fontSize: '0.78rem', gap: 0.75, py: 0.75, color: c.textSecondary, borderColor: c.borderLight, '&.Mui-selected': { bgcolor: `${c.accent}18`, color: c.accent, borderColor: c.accent, '&:hover': { bgcolor: `${c.accent}26` } } }}
+          >
+            <Badge color="error" variant="dot" invisible={incoming.length === 0}>
+              <MoveToInboxIcon sx={{ fontSize: '1rem' }} />
+            </Badge>
+            Sent to you
+          </ToggleButton>
+        </ToggleButtonGroup>
+      )}
+
+      {tab === 'incoming' ? (
+        incomingLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress size={24} sx={{ color: c.accent }} />
+          </Box>
+        ) : incoming.length === 0 ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, py: 6 }}>
+            <MoveToInboxIcon sx={{ fontSize: '1.5rem', color: c.textSecondary, opacity: 0.5 }} />
+            <Typography sx={{ fontSize: '0.85rem', color: c.textSecondary }}>
+              Nothing has been sent to you yet.
+            </Typography>
+            <Typography sx={{ fontSize: '0.75rem', color: c.textSecondary, opacity: 0.8 }}>
+              Gifts and private sales addressed to your account will show up here.
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ border: `${tokens.shape.borderWidth} solid ${c.borderLight}`, borderRadius: `${tokens.shape.radius}px`, bgcolor: c.surface, mb: 2, overflow: 'hidden' }}>
+            {incoming.map(entry => (
+              <NameRow
+                key={entry.name}
+                entry={entry}
+                isOwn={false}
+                sellerName={incomingOwnerNames.get(entry.owner) ?? null}
+                onBuy={() => setBuyTarget(entry)}
+              />
+            ))}
+          </Box>
+        )
+      ) : (
+      <>
       {/* Search */}
       <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
         <TextField
@@ -386,6 +488,26 @@ export function MarketplacePage({ initialQuery, exact }: Props) {
                 </Button>
               )}
             </Box>
+          ) : nameRecord.isForSale && nameRecord.saleRecipient && nameRecord.saleRecipient === account?.address ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CardGiftcardIcon sx={{ fontSize: '1rem', color: c.accent }} />
+                <Typography sx={{ fontSize: '0.85rem', fontWeight: tokens.typography.weightBold, color: c.textPrimary }}>
+                  {nameRecord.salePrice ? 'Privately offered to you' : '"' + initialQuery + '" was gifted to you'}
+                </Typography>
+              </Box>
+              <Typography sx={{ fontSize: '0.78rem', color: c.textSecondary }}>
+                {ownerPrimary ?? truncateAddress(nameRecord.owner)} sent <strong>{initialQuery}</strong> directly to your address
+                {nameRecord.salePrice ? <> for <Box component="span" sx={{ color: c.success, fontWeight: tokens.typography.weightBold }}>{nameRecord.salePrice.toLocaleString()} QORT</Box></> : ' as a free gift'}.
+              </Typography>
+              <Button
+                variant="contained" disableElevation size="small"
+                onClick={() => setBuyTarget({ name: initialQuery, owner: nameRecord.owner, salePrice: nameRecord.salePrice ?? 0 })}
+                sx={{ alignSelf: 'flex-start', bgcolor: c.accent, color: c.accentText, borderRadius: '50px', fontSize: '0.72rem', px: 2, '&:hover': { bgcolor: c.accentHover } }}
+              >
+                {nameRecord.salePrice ? `Buy for ${nameRecord.salePrice.toLocaleString()} QORT` : 'Claim gift'}
+              </Button>
+            </Box>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
               <Typography sx={{ fontSize: '0.85rem', fontWeight: tokens.typography.weightBold, color: c.textPrimary }}>
@@ -394,11 +516,13 @@ export function MarketplacePage({ initialQuery, exact }: Props) {
               <Typography sx={{ fontSize: '0.78rem', color: c.textSecondary }}>
                 {nameRecord.owner === account?.address
                   ? 'You own this name.'
-                  : ownerPrimary === initialQuery
-                    ? 'Owned, not for sale.'
-                    : ownerPrimary
-                      ? <>Owned by <Box component="span" sx={{ color: c.textPrimary, fontWeight: tokens.typography.weightMedium }}>{ownerPrimary}</Box>.</>
-                      : <>Owned by <Box component="span" sx={{ fontFamily: 'monospace', color: c.textPrimary }}>{truncateAddress(nameRecord.owner)}</Box>.</>
+                  : nameRecord.isForSale && nameRecord.saleRecipient
+                    ? 'This name has been privately offered to another buyer.'
+                    : ownerPrimary === initialQuery
+                      ? 'Owned, not for sale.'
+                      : ownerPrimary
+                        ? <>Owned by <Box component="span" sx={{ color: c.textPrimary, fontWeight: tokens.typography.weightMedium }}>{ownerPrimary}</Box>.</>
+                        : <>Owned by <Box component="span" sx={{ fontFamily: 'monospace', color: c.textPrimary }}>{truncateAddress(nameRecord.owner)}</Box>.</>
                 }
               </Typography>
             </Box>
@@ -429,12 +553,21 @@ export function MarketplacePage({ initialQuery, exact }: Props) {
           ))}
         </Box>
       )}
+      </>
+      )}
 
       {buyTarget && (
         <BuyDialog
           entry={buyTarget}
           onClose={() => setBuyTarget(null)}
-          onSuccess={() => setNames(prev => prev.filter(n => n.name !== buyTarget.name))}
+          onSuccess={() => {
+            setNames(prev => prev.filter(n => n.name !== buyTarget.name));
+            setIncoming(prev => {
+              const next = prev.filter(n => n.name !== buyTarget.name);
+              if (next.length !== prev.length) setIncomingTransferCount(next.length);
+              return next;
+            });
+          }}
         />
       )}
     </Box>

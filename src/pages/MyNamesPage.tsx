@@ -1,40 +1,74 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
-  Box, Button, CircularProgress, Dialog, DialogContent, DialogTitle,
-  IconButton, TextField, Typography, Alert, Chip,
+  Box, Button, CircularProgress, Checkbox, Dialog, DialogContent, DialogTitle,
+  FormControlLabel, IconButton, TextField, Typography, Alert, Chip, ToggleButton, ToggleButtonGroup,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
 import BadgeIcon from '@mui/icons-material/Badge';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import StorefrontIcon from '@mui/icons-material/Storefront';
+import SendIcon from '@mui/icons-material/Send';
+import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
 import { useAtomValue } from 'jotai';
 import { useColors } from '../theme/ColorTokensContext';
 import { tokens } from '../theme/tokens';
 import { accountAtom, uiStyleAtom } from '../state/atoms';
 import { getAccountNames, registerName, updateName, sellName, cancelSellName, ensureAccountUnlocked } from '../api/qortal';
 
-type NameEntry = { name: string; owner: string; description?: string; registrationTimestamp: number; isForSale?: boolean; salePrice?: number };
+type NameEntry = { name: string; owner: string; description?: string; registrationTimestamp: number; isForSale?: boolean; salePrice?: number; saleRecipient?: string | null };
 type Status = { type: 'success' | 'error'; msg: string } | null;
+type SellMode = 'public' | 'private';
+
+function isLikelyAddress(value: string): boolean {
+  return /^[1-9A-HJ-NP-Za-km-z]{25,36}$/.test(value.trim());
+}
+
+function truncateAddress(addr: string): string {
+  if (addr.length <= 12) return addr;
+  return `${addr.slice(0, 8)}…${addr.slice(-4)}`;
+}
 
 function SellDialog({ name, onClose, onSuccess }: { name: string; onClose: () => void; onSuccess: () => void }) {
   const c = useColors();
+  const [mode, setMode] = useState<SellMode>('public');
   const [price, setPrice] = useState('');
+  const [recipient, setRecipient] = useState('');
+  const [isGift, setIsGift] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const parsed = parseFloat(price);
-  const valid = !isNaN(parsed) && parsed > 0;
+  const priceValid = !isNaN(parsed) && parsed > 0;
+  const recipientValid = isLikelyAddress(recipient);
+  const valid = mode === 'public'
+    ? priceValid
+    : recipientValid && (isGift || priceValid);
 
   async function confirm() {
     if (!valid) return;
     setBusy(true); setErr(null);
     try {
       if (!await ensureAccountUnlocked()) return;
-      await sellName(name, parsed); onSuccess(); onClose();
+      const amount = mode === 'private' && isGift ? 0 : parsed;
+      await sellName(name, amount, mode === 'private' ? recipient.trim() : undefined);
+      onSuccess(); onClose();
     }
     catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
+
+  const toggleSx = {
+    flex: 1, textTransform: 'none', fontSize: '0.78rem', gap: 0.75, py: 0.75,
+    color: c.textSecondary, borderColor: c.borderLight,
+    '&.Mui-selected': { bgcolor: `${c.accent}18`, color: c.accent, borderColor: c.accent, '&:hover': { bgcolor: `${c.accent}26` } },
+  };
+  const fieldSx = { '& .MuiOutlinedInput-root': { fontSize: '0.85rem', '& fieldset': { borderColor: c.borderLight }, '&:hover fieldset': { borderColor: c.accent }, '&.Mui-focused fieldset': { borderColor: c.accent } } };
+
+  let buttonLabel: string;
+  if (mode === 'public') buttonLabel = `List for ${priceValid ? parsed.toLocaleString() : '?'} QORT`;
+  else if (isGift) buttonLabel = 'Send gift';
+  else buttonLabel = `Send for ${priceValid ? parsed.toLocaleString() : '?'} QORT`;
 
   return (
     <Dialog open onClose={onClose} maxWidth="xs" fullWidth PaperProps={{ sx: { bgcolor: c.surface, border: `${tokens.shape.borderWidth} solid ${c.borderLight}`, borderRadius: 0 } }}>
@@ -43,22 +77,63 @@ function SellDialog({ name, onClose, onSuccess }: { name: string; onClose: () =>
         <IconButton size="small" onClick={onClose} sx={{ color: c.textSecondary }}><CloseIcon fontSize="small" /></IconButton>
       </DialogTitle>
       <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <ToggleButtonGroup
+          exclusive fullWidth value={mode}
+          onChange={(_, v) => { if (v) setMode(v as SellMode); }}
+          sx={{ '& .MuiToggleButtonGroup-grouped': { borderRadius: `${tokens.shape.radius}px !important`, border: `${tokens.shape.borderWidth} solid ${c.borderLight} !important` } }}
+        >
+          <ToggleButton value="public" sx={toggleSx}><StorefrontIcon sx={{ fontSize: '1rem' }} />Public listing</ToggleButton>
+          <ToggleButton value="private" sx={toggleSx}><SendIcon sx={{ fontSize: '1rem' }} />Send to address</ToggleButton>
+        </ToggleButtonGroup>
+
         <Typography sx={{ fontSize: '0.82rem', color: c.textSecondary }}>
-          Set a sale price. The name will be publicly listed in the marketplace.
+          {mode === 'public'
+            ? 'Set a sale price. The name will be publicly listed in the marketplace for anyone to buy.'
+            : 'Only the address below will be able to claim this name — it stays out of the public marketplace.'}
         </Typography>
+
         {err && <Alert severity="error" sx={{ fontSize: '0.78rem', py: 0 }}>{err}</Alert>}
-        <TextField
-          autoFocus size="small" fullWidth placeholder="Price in QORT…"
-          value={price} onChange={e => setPrice(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && void confirm()}
-          type="number" slotProps={{ htmlInput: { min: 0, step: 'any' } }}
-          sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.85rem', '& fieldset': { borderColor: c.borderLight }, '&:hover fieldset': { borderColor: c.accent }, '&.Mui-focused fieldset': { borderColor: c.accent } } }}
-        />
+
+        {mode === 'private' && (
+          <TextField
+            autoFocus size="small" fullWidth placeholder="Recipient address…"
+            value={recipient} onChange={e => setRecipient(e.target.value)}
+            error={recipient.length > 0 && !recipientValid}
+            helperText={recipient.length > 0 && !recipientValid ? 'Enter a valid address' : ' '}
+            sx={{ ...fieldSx, '& .MuiFormHelperText-root': { fontSize: '0.68rem', mx: 0 } }}
+          />
+        )}
+
+        {mode === 'private' && (
+          <FormControlLabel
+            sx={{ ml: 0, gap: 1 }}
+            control={
+              <Checkbox
+                size="small" checked={isGift} onChange={e => setIsGift(e.target.checked)}
+                icon={<CardGiftcardIcon sx={{ fontSize: '1.1rem', color: c.textSecondary }} />}
+                checkedIcon={<CardGiftcardIcon sx={{ fontSize: '1.1rem', color: c.accent }} />}
+                sx={{ p: 0 }}
+              />
+            }
+            label={<Typography sx={{ fontSize: '0.8rem', color: c.textPrimary }}>Make this a free gift</Typography>}
+          />
+        )}
+
+        {!(mode === 'private' && isGift) && (
+          <TextField
+            autoFocus={mode === 'public'} size="small" fullWidth placeholder="Price in QORT…"
+            value={price} onChange={e => setPrice(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && void confirm()}
+            type="number" slotProps={{ htmlInput: { min: 0, step: 'any' } }}
+            sx={fieldSx}
+          />
+        )}
+
         <Button
           variant="contained" disableElevation onClick={() => { void confirm(); }} disabled={busy || !valid}
           sx={{ bgcolor: c.accent, color: c.accentText, borderRadius: 0, '&:hover': { bgcolor: c.accentHover }, '&.Mui-disabled': { opacity: 0.35, bgcolor: c.accent, color: c.accentText } }}
         >
-          {busy ? <CircularProgress size={14} sx={{ color: c.accentText }} /> : `List for ${valid ? parsed.toLocaleString() : '?'} QORT`}
+          {busy ? <CircularProgress size={14} sx={{ color: c.accentText }} /> : buttonLabel}
         </Button>
       </DialogContent>
     </Dialog>
@@ -156,12 +231,15 @@ function MyNameCard({ entry, isPrimary, onRefresh }: { entry: NameEntry; isPrima
   }
 
   const listed = entry.isForSale === true;
+  const isPrivate = listed && !!entry.saleRecipient;
+  const isGift = isPrivate && !entry.salePrice;
+  const statusColor = isPrivate ? c.accent : c.success;
 
   return (
     <Box sx={{
-      border: `${tokens.shape.borderWidth} solid ${listed ? `${c.success}66` : c.borderLight}`,
+      border: `${tokens.shape.borderWidth} solid ${listed ? `${statusColor}66` : c.borderLight}`,
       borderRadius: `${tokens.shape.radius}px`,
-      bgcolor: listed ? `${c.success}08` : c.surface,
+      bgcolor: listed ? `${statusColor}08` : c.surface,
       p: 2.5,
       transition: '0.15s ease',
     }}>
@@ -171,13 +249,20 @@ function MyNameCard({ entry, isPrimary, onRefresh }: { entry: NameEntry; isPrima
       </Box>
 
       {listed && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, p: 1, bgcolor: `${c.success}14`, border: `1px solid ${c.success}33`, borderRadius: `${tokens.shape.radius / 2}px` }}>
-          <Typography sx={{ fontSize: '0.65rem', fontWeight: tokens.typography.weightBold, letterSpacing: '0.1em', textTransform: 'uppercase', color: c.success }}>
-            For Sale
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, p: 1, bgcolor: `${statusColor}14`, border: `1px solid ${statusColor}33`, borderRadius: `${tokens.shape.radius / 2}px`, flexWrap: 'wrap' }}>
+          <Typography sx={{ fontSize: '0.65rem', fontWeight: tokens.typography.weightBold, letterSpacing: '0.1em', textTransform: 'uppercase', color: statusColor }}>
+            {isPrivate ? (isGift ? 'Gift Sent' : 'Private Sale') : 'For Sale'}
           </Typography>
-          <Typography sx={{ fontSize: '0.9rem', fontWeight: tokens.typography.weightBlack, color: c.success, letterSpacing: '-0.01em' }}>
-            {entry.salePrice?.toLocaleString() ?? '?'} QORT
-          </Typography>
+          {!isGift && (
+            <Typography sx={{ fontSize: '0.9rem', fontWeight: tokens.typography.weightBlack, color: statusColor, letterSpacing: '-0.01em' }}>
+              {entry.salePrice?.toLocaleString() ?? '?'} QORT
+            </Typography>
+          )}
+          {isPrivate && (
+            <Typography sx={{ fontSize: '0.7rem', color: c.textSecondary, fontFamily: 'monospace' }}>
+              → {truncateAddress(entry.saleRecipient!)}
+            </Typography>
+          )}
         </Box>
       )}
 

@@ -27,3 +27,5 @@ export const themeAtom = atom<EnumTheme>(_theme);
 export const accentAtom = atom<string>(_accent);
 export const uiStyleAtom = atom<UiStyle>(_uiStyle);
 export const accountAtom = atom<{ address: string; name: string | null } | null>(null);
+/** Count of names currently sent (gifted or privately sold) to the active account, awaiting claim. */
+export const incomingTransferCountAtom = atom<number>(0);

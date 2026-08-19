@@ -10,6 +10,7 @@ export interface QortalName {
   updated?: number;
   isForSale?: boolean;
   salePrice?: number;
+  saleRecipient?: string | null;
   description?: string;
 }
 
@@ -17,4 +18,5 @@ export interface NameForSale {
   name: string;
   owner: string;
   salePrice: number;
+  saleRecipient?: string | null;
 }

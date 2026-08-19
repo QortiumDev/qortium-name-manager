@@ -15,29 +15,48 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 export async function fetchNameData(name: string): Promise<{
-  name: string; owner: string; isForSale: boolean; salePrice: number | null;
+  name: string; owner: string; isForSale: boolean; salePrice: number | null; saleRecipient?: string | null;
 } | null> {
   try {
-    return await get<{ name: string; owner: string; isForSale: boolean; salePrice: number | null }>(
+    return await get<{ name: string; owner: string; isForSale: boolean; salePrice: number | null; saleRecipient?: string | null }>(
       `/names/${encodeURIComponent(name)}`
     );
   } catch { return null; }
 }
 
-export async function fetchNamesForSale(limit = 20, offset = 0): Promise<Array<{ name: string; owner: string; salePrice: number }>> {
+/**
+ * Fetches one page of the public for-sale list, with names privately directed
+ * at a specific recipient (private sales / gifts) filtered out. `rawCount` is
+ * the size of the unfiltered page from the node, so callers can tell whether
+ * there are more pages left even when this page's visible items were thinned out.
+ */
+export async function fetchNamesForSale(limit = 20, offset = 0): Promise<{ items: Array<{ name: string; owner: string; salePrice: number }>; rawCount: number }> {
   try {
-    return get<Array<{ name: string; owner: string; salePrice: number }>>(`/names/forsale?limit=${limit}&offset=${offset}`);
-  } catch { return []; }
+    const page = await get<Array<{ name: string; owner: string; salePrice: number; saleRecipient?: string | null }>>(
+      `/names/forsale?limit=${limit}&offset=${offset}`
+    );
+    return { items: page.filter(n => !n.saleRecipient), rawCount: page.length };
+  } catch { return { items: [], rawCount: 0 }; }
 }
 
 export async function searchNamesForSale(query: string, limit = 50): Promise<Array<{ name: string; owner: string; salePrice: number }>> {
   try {
-    const results = await get<Array<{ name: string; owner: string; isForSale?: boolean; salePrice?: number }>>(
+    const results = await get<Array<{ name: string; owner: string; isForSale?: boolean; salePrice?: number; saleRecipient?: string | null }>>(
       `/names/search?query=${encodeURIComponent(query)}&limit=${limit}`
     );
     return results
-      .filter(r => r.isForSale && r.salePrice != null)
+      .filter(r => r.isForSale && r.salePrice != null && !r.saleRecipient)
       .map(r => ({ name: r.name, owner: r.owner, salePrice: r.salePrice! }));
+  } catch { return []; }
+}
+
+/** Names currently offered (publicly or privately) directly to `address` — gifts and private sales awaiting claim. */
+export async function fetchIncomingTransfers(address: string): Promise<Array<{ name: string; owner: string; salePrice: number }>> {
+  try {
+    const all = await get<Array<{ name: string; owner: string; salePrice: number; saleRecipient?: string | null }>>('/names/forsale');
+    return all
+      .filter(n => n.saleRecipient === address)
+      .map(n => ({ name: n.name, owner: n.owner, salePrice: n.salePrice }));
   } catch { return []; }
 }
 

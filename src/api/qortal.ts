@@ -3,9 +3,9 @@ export async function getUserAccount(): Promise<{ address: string; name: string 
   return { address: res.address, name: res.name || null };
 }
 
-export async function getAccountNames(address: string): Promise<Array<{ name: string; owner: string; description?: string; registrationTimestamp: number; isForSale?: boolean; salePrice?: number }>> {
+export async function getAccountNames(address: string): Promise<Array<{ name: string; owner: string; description?: string; registrationTimestamp: number; isForSale?: boolean; salePrice?: number; saleRecipient?: string | null }>> {
   try {
-    const res = await qdnRequest({ action: 'GET_ACCOUNT_NAMES', address }) as Array<{ name: string; owner: string; description?: string; registrationTimestamp: number; isForSale?: boolean; salePrice?: number }>;
+    const res = await qdnRequest({ action: 'GET_ACCOUNT_NAMES', address }) as Array<{ name: string; owner: string; description?: string; registrationTimestamp: number; isForSale?: boolean; salePrice?: number; saleRecipient?: string | null }>;
     return res ?? [];
   } catch { return []; }
 }
@@ -18,8 +18,9 @@ export async function updateName(name: string, newName: string): Promise<void> {
   await qdnRequest({ action: 'UPDATE_NAME', name, newName });
 }
 
-export async function sellName(name: string, amount: number): Promise<void> {
-  await qdnRequest({ action: 'SELL_NAME', name, amount });
+/** `recipient`, when set, restricts the sale to that address only (private sale, or a free gift when amount is 0). */
+export async function sellName(name: string, amount: number, recipient?: string): Promise<void> {
+  await qdnRequest({ action: 'SELL_NAME', name, amount, ...(recipient ? { recipient } : {}) });
 }
 
 export async function cancelSellName(name: string): Promise<void> {

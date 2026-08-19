@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAtomValue } from 'jotai';
-import { Box, IconButton, Tooltip } from '@mui/material';
+import { Badge, Box, IconButton, Tooltip } from '@mui/material';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import BadgeIcon from '@mui/icons-material/Badge';
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
@@ -9,7 +9,7 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useColors } from '../../theme/ColorTokensContext';
 import { tokens } from '../../theme/tokens';
-import { uiStyleAtom } from '../../state/atoms';
+import { uiStyleAtom, incomingTransferCountAtom } from '../../state/atoms';
 import { RatingControl } from './RatingControl';
 import { AppIcon, getOwnQdnName } from './AppIdentity';
 
@@ -24,6 +24,7 @@ const NAV = [
 export function TopBar() {
   const c = useColors();
   const uiStyle = useAtomValue(uiStyleAtom);
+  const incomingTransferCount = useAtomValue(incomingTransferCountAtom);
   const navigate = useNavigate();
   const location = useLocation();
   const headerRef = useRef<HTMLElement | null>(null);
@@ -156,8 +157,9 @@ export function TopBar() {
       }}>
         {NAV.map(({ path, icon, label }) => {
           const active = location.pathname === path;
+          const showBadge = path === '/marketplace' && incomingTransferCount > 0;
           return (
-            <Tooltip key={path} title={label} placement="bottom">
+            <Tooltip key={path} title={showBadge ? `${label} — ${incomingTransferCount} sent to you` : label} placement="bottom">
               <IconButton
                 onClick={() => navigate(path)}
                 sx={{
@@ -166,7 +168,12 @@ export function TopBar() {
                   bgcolor: active && isClassic ? c.controlSelected : 'transparent',
                 }}
               >
-                {icon}
+                <Badge
+                  color="error" variant="dot" invisible={!showBadge}
+                  sx={{ '& .MuiBadge-badge': { top: 2, right: 2 } }}
+                >
+                  {icon}
+                </Badge>
               </IconButton>
             </Tooltip>
           );

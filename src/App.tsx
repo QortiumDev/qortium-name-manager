@@ -1,20 +1,23 @@
 import { useEffect, useMemo } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { useAtom, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { createAppTheme } from './theme/theme';
 import { getColorTokens } from './theme/tokens';
 import { ColorTokensContext } from './theme/ColorTokensContext';
-import { themeAtom, accentAtom, accountAtom, uiStyleAtom } from './state/atoms';
+import { themeAtom, accentAtom, accountAtom, uiStyleAtom, incomingTransferCountAtom } from './state/atoms';
 import { EnumTheme } from './types';
 import { AppRoutes } from './routes/Routes';
 import { getUserAccount } from './api/qortal';
+import { fetchIncomingTransfers } from './api/rest';
 
 export function App() {
   const [theme] = useAtom(themeAtom);
   const [accent] = useAtom(accentAtom);
   const [uiStyle] = useAtom(uiStyleAtom);
   const setAccount = useSetAtom(accountAtom);
+  const account = useAtomValue(accountAtom);
+  const setIncomingTransferCount = useSetAtom(incomingTransferCountAtom);
 
   const mode = theme === EnumTheme.DARK ? 'dark' : 'light';
   const colors = useMemo(() => getColorTokens(mode, uiStyle, accent), [mode, uiStyle, accent]);
@@ -44,6 +47,15 @@ export function App() {
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, [setAccount]);
+
+  useEffect(() => {
+    if (!account) { setIncomingTransferCount(0); return; }
+    let cancelled = false;
+    fetchIncomingTransfers(account.address).then(list => {
+      if (!cancelled) setIncomingTransferCount(list.length);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [account, setIncomingTransferCount]);
 
   return (
     <ThemeProvider theme={muiTheme}>
