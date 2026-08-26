@@ -10,6 +10,7 @@ import StorefrontIcon from '@mui/icons-material/Storefront';
 import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
 import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
 import { useAtomValue, useSetAtom } from 'jotai';
+import { useNavigate } from 'react-router-dom';
 import { useColors } from '../theme/ColorTokensContext';
 import { tokens } from '../theme/tokens';
 import { accountAtom, uiStyleAtom, incomingTransferCountAtom } from '../state/atoms';
@@ -140,16 +141,30 @@ function NameRow({ entry, isOwn, sellerName, onBuy }: { entry: NameForSale; isOw
 interface Props {
   initialQuery?: string;
   exact?: boolean;
+  initialTab?: BrowseTab;
 }
 
-export function MarketplacePage({ initialQuery, exact }: Props) {
+export function MarketplacePage({ initialQuery, exact, initialTab }: Props) {
   const c = useColors();
   const account = useAtomValue(accountAtom);
   const uiStyle = useAtomValue(uiStyleAtom);
   const isClassic = uiStyle === 'classic';
   const setIncomingTransferCount = useSetAtom(incomingTransferCountAtom);
+  const navigate = useNavigate();
 
-  const [tab, setTab] = useState<BrowseTab>('browse');
+  const [tab, setTab] = useState<BrowseTab>(initialTab ?? 'browse');
+
+  // Keep the tab in sync when navigated to directly (e.g. browser back/forward,
+  // or a link elsewhere in the app), since this page doesn't remount between
+  // /marketplace and /marketplace/sent.
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
+
+  function handleTabChange(next: BrowseTab) {
+    setTab(next);
+    navigate(next === 'incoming' ? '/marketplace/sent' : '/marketplace', { replace: true });
+  }
 
   const [inputValue, setInputValue] = useState(initialQuery ?? '');
   const [query, setQuery]           = useState(initialQuery ?? '');
@@ -351,7 +366,7 @@ export function MarketplacePage({ initialQuery, exact }: Props) {
       {!exact && (
         <ToggleButtonGroup
           exclusive fullWidth value={tab}
-          onChange={(_, v) => { if (v) setTab(v as BrowseTab); }}
+          onChange={(_, v) => { if (v) handleTabChange(v as BrowseTab); }}
           sx={{ mb: 2, '& .MuiToggleButtonGroup-grouped': { borderRadius: `${tokens.shape.radius}px !important`, border: `${tokens.shape.borderWidth} solid ${c.borderLight} !important` } }}
         >
           <ToggleButton

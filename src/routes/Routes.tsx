@@ -35,7 +35,8 @@ const router = createHashRouter([
     element: <Layout />,
     children: [
       { index: true,               element: <MyNamesPage /> },
-      { path: 'marketplace',       element: <MarketplacePage /> },
+      { path: 'marketplace',       element: <MarketplacePage initialTab="browse" /> },
+      { path: 'marketplace/sent',  element: <MarketplacePage initialTab="incoming" /> },
       { path: 'name/:name',        element: <NameRoute /> },
       { path: 'search/:query',     element: <SearchRoute /> },
       { path: 'address/:address',  element: <AddressNamesPage /> },

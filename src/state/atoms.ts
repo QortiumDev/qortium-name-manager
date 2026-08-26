@@ -1,4 +1,5 @@
 import { atom } from 'jotai';
+import { atomWithStorage } from 'jotai/utils';
 import { EnumTheme } from '../types';
 
 export type UiStyle = 'classic' | 'modern';
@@ -29,3 +30,9 @@ export const uiStyleAtom = atom<UiStyle>(_uiStyle);
 export const accountAtom = atom<{ address: string; name: string | null } | null>(null);
 /** Count of names currently sent (gifted or privately sold) to the active account, awaiting claim. */
 export const incomingTransferCountAtom = atom<number>(0);
+
+// Background notifications for names sold and names sent to the active account.
+// notificationsSupportedAtom is set once after a SHOW_ACTIONS feature check;
+// notificationsEnabledAtom is the user's local on/off preference.
+export const notificationsSupportedAtom = atom<boolean>(false);
+export const notificationsEnabledAtom = atomWithStorage<boolean>('names-notifications-enabled', false);

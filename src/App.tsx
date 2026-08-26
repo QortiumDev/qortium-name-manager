@@ -10,6 +10,7 @@ import { EnumTheme } from './types';
 import { AppRoutes } from './routes/Routes';
 import { getUserAccount } from './api/qortal';
 import { fetchIncomingTransfers } from './api/rest';
+import { useNameNotifications } from './hooks/useNameNotifications';
 
 export function App() {
   const [theme] = useAtom(themeAtom);
@@ -18,6 +19,7 @@ export function App() {
   const setAccount = useSetAtom(accountAtom);
   const account = useAtomValue(accountAtom);
   const setIncomingTransferCount = useSetAtom(incomingTransferCountAtom);
+  useNameNotifications();
 
   const mode = theme === EnumTheme.DARK ? 'dark' : 'light';
   const colors = useMemo(() => getColorTokens(mode, uiStyle, accent), [mode, uiStyle, accent]);

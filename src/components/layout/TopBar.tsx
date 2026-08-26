@@ -1,15 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useAtomValue } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { Badge, Box, IconButton, Tooltip } from '@mui/material';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import BadgeIcon from '@mui/icons-material/Badge';
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
 import PersonRemoveAlt1Icon from '@mui/icons-material/PersonRemoveAlt1';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useColors } from '../../theme/ColorTokensContext';
 import { tokens } from '../../theme/tokens';
-import { uiStyleAtom, incomingTransferCountAtom } from '../../state/atoms';
+import { uiStyleAtom, incomingTransferCountAtom, notificationsEnabledAtom, notificationsSupportedAtom } from '../../state/atoms';
 import { RatingControl } from './RatingControl';
 import { AppIcon, getOwnQdnName } from './AppIdentity';
 
@@ -25,6 +27,8 @@ export function TopBar() {
   const c = useColors();
   const uiStyle = useAtomValue(uiStyleAtom);
   const incomingTransferCount = useAtomValue(incomingTransferCountAtom);
+  const [notificationsEnabled, setNotificationsEnabled] = useAtom(notificationsEnabledAtom);
+  const notificationsSupported = useAtomValue(notificationsSupportedAtom);
   const navigate = useNavigate();
   const location = useLocation();
   const headerRef = useRef<HTMLElement | null>(null);
@@ -156,7 +160,7 @@ export function TopBar() {
         minWidth: 0,
       }}>
         {NAV.map(({ path, icon, label }) => {
-          const active = location.pathname === path;
+          const active = path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
           const showBadge = path === '/marketplace' && incomingTransferCount > 0;
           return (
             <Tooltip key={path} title={showBadge ? `${label} — ${incomingTransferCount} sent to you` : label} placement="bottom">
@@ -188,6 +192,18 @@ export function TopBar() {
         gridColumn: isClassic ? { xs: 2, sm: 'auto' } : 'auto',
         gridRow: isClassic ? { xs: 1, sm: 'auto' } : 'auto',
       }}>
+        {notificationsSupported && (
+          <Tooltip title={notificationsEnabled ? 'Notify me when a name is sold or sent to me' : 'Notifications off'} placement="bottom">
+            <IconButton
+              size="small"
+              onClick={() => setNotificationsEnabled((v) => !v)}
+              sx={{ ...buttonSx, color: notificationsEnabled ? c.accent : c.textSecondary }}
+            >
+              {notificationsEnabled ? <NotificationsActiveIcon fontSize="small" /> : <NotificationsOffIcon fontSize="small" />}
+            </IconButton>
+          </Tooltip>
+        )}
+
         <RatingControl qdnName={APP_QDN_NAME} identifier={APP_QDN_IDENTIFIER} />
 
         <Tooltip title={isFollowed ? 'Stop following this app' : 'Follow this app'} placement="bottom">
